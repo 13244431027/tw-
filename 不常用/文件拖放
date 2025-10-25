@@ -1,0 +1,194 @@
+// Name: 文件拖放
+// Image: ./assets/extensions-images/dropfiles.png
+// ID: filedrop
+// Author: XmerOriginals
+// Description: 管理从文件管理器拖放到独立项目上的文件。
+// License: MPL-2.0
+
+class DropFiles {
+  constructor(runtime) {
+    this.runtime = runtime;
+
+    this.enabled = false;
+    this.dragging = false;
+    this.droppedFile = null;
+
+    this._boundDragOver = this._onDragOver.bind(this);
+    this._boundDrop = this._onDrop.bind(this);
+    this._boundDragLeave = this._onDragLeave.bind(this);
+  }
+
+  getInfo() {
+    return {
+      id: "dropfiles",
+      name: "文件拖放",
+      color1: "#05a047",
+      blocks: [
+        {
+          opcode: "whenFileDropped",
+          blockType: Scratch.BlockType.HAT,
+          text: "当文件被拖放时",
+        },
+        {
+          opcode: "setEnabled",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "设置文件拖放为 [STATE]",
+          arguments: {
+            STATE: {
+              type: Scratch.ArgumentType.STRING,
+              menu: "stateMenu",
+            },
+          },
+        },
+        {
+          opcode: "clearDroppedFile",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "清除已拖放的文件",
+        },
+        {
+          blockType: "label",
+          text: "控制",
+        },
+        {
+          opcode: "isEnabled",
+          blockType: Scratch.BlockType.BOOLEAN,
+          text: "文件拖放已启用？",
+        },
+        {
+          opcode: "isDragging",
+          blockType: Scratch.BlockType.BOOLEAN,
+          text: "正在拖放文件？",
+        },
+        {
+          blockType: "label",
+          text: "文件信息",
+        },
+        {
+          opcode: "getFileContent",
+          blockType: Scratch.BlockType.REPORTER,
+          text: "获取拖放文件内容为 [FORMAT]",
+          arguments: {
+            FORMAT: {
+              type: Scratch.ArgumentType.STRING,
+              menu: "formatMenu",
+            },
+          },
+        },
+        {
+          opcode: "getFileInfo",
+          blockType: Scratch.BlockType.REPORTER,
+          text: "获取拖放文件的 [INFO]",
+          arguments: {
+            INFO: {
+              type: Scratch.ArgumentType.STRING,
+              menu: "infoMenu",
+            },
+          },
+        },
+      ],
+      menus: {
+        stateMenu: {
+          acceptReporters: true,
+          items: ["启用", "禁用"],
+        },
+        formatMenu: {
+          acceptReporters: true,
+          items: ["文本", "数据URI"],
+        },
+        infoMenu: {
+          acceptReporters: true,
+          items: ["名称", "大小", "类型"],
+        },
+      },
+    };
+  }
+
+  setEnabled({ STATE }) {
+    const enable = STATE === "启用";
+    if (enable && !this.enabled) {
+      window.addEventListener("dragover", this._boundDragOver);
+      window.addEventListener("drop", this._boundDrop);
+      window.addEventListener("dragleave", this._boundDragLeave);
+    } else if (!enable && this.enabled) {
+      window.removeEventListener("dragover", this._boundDragOver);
+      window.removeEventListener("drop", this._boundDrop);
+      window.removeEventListener("dragleave", this._boundDragLeave);
+    }
+    this.enabled = enable;
+  }
+
+  clearDroppedFile() {
+    this.droppedFile = null;
+  }
+
+  isEnabled() {
+    return this.enabled;
+  }
+
+  isDragging() {
+    return this.dragging;
+  }
+
+  getFileContent({ FORMAT }) {
+    if (!this.droppedFile) return "";
+    if (FORMAT === "数据URI") {
+      return this._getDataURI(this.droppedFile);
+    } else {
+      return this._getText(this.droppedFile);
+    }
+  }
+
+  async _getDataURI(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async _getText(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsText(file);
+    });
+  }
+
+  getFileInfo({ INFO }) {
+    if (!this.droppedFile) return "";
+    switch (INFO) {
+      case "名称":
+        return this.droppedFile.name;
+      case "大小":
+        return this.droppedFile.size.toString();
+      case "类型":
+        return this.droppedFile.type;
+    }
+    return "";
+  }
+
+  whenFileDropped() {
+    return !!this.droppedFile;
+  }
+
+  _onDragOver(e) {
+    e.preventDefault();
+    this.dragging = true;
+  }
+
+  _onDragLeave(e) {
+    e.preventDefault();
+    this.dragging = false;
+  }
+
+  _onDrop(e) {
+    e.preventDefault();
+    this.dragging = false;
+    if (e.dataTransfer.files.length > 0) {
+      this.droppedFile = e.dataTransfer.files[0];
+      this.runtime.startHats("dropfiles_whenFileDropped");
+    }
+  }
+}
+
+Scratch.extensions.register(new DropFiles());
