@@ -1,0 +1,142 @@
+// 名称: 多文件选择器+
+// 图片: ./assets/extensions-images/multifileplus.png
+// 作者: XmerOriginals
+// ID: multifileplus
+// 描述: 快速处理多个选定的文件。
+// 许可证: MPL-2.0
+
+class MultiFileSelector {
+  constructor(runtime) {
+    this.runtime = runtime;
+    this.files = [];
+    this.fileContents = [];
+  }
+
+  getInfo() {
+    return {
+      id: "multiFileSelector",
+      name: "多文件选择器+",
+      color1: "#fc6400",
+      blocks: [
+        {
+          opcode: "selectFiles",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "选择文件 [TYPES] 最大 [MAX]",
+          arguments: {
+            TYPES: {
+              type: Scratch.ArgumentType.STRING,
+              menu: "fileTypes",
+              defaultValue: "all",
+            },
+            MAX: {
+              type: Scratch.ArgumentType.NUMBER,
+              defaultValue: 10,
+            },
+          },
+        },
+        {
+          opcode: "clearFiles",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "清空文件选择",
+        },
+        {
+          blockType: "label",
+          text: "文件数据",
+        },
+        {
+          opcode: "getFileInfo",
+          blockType: Scratch.BlockType.REPORTER,
+          text: "文件信息列表",
+        },
+        {
+          opcode: "getFileData",
+          blockType: Scratch.BlockType.REPORTER,
+          text: "文件数据列表",
+        },
+      ],
+      menus: {
+        fileTypes: {
+          acceptReporters: true,
+          items: [
+            {text: "所有文件", value: "all"},
+            {text: "音频文件", value: "audio"},
+            {text: "文本文件", value: "text"},
+            {text: "图像文件", value: "image"}
+          ],
+        },
+      },
+    };
+  }
+
+  async selectFiles(args, util) {
+    const maxFiles = Math.max(1, Math.floor(args.MAX));
+    const typeMap = {
+      all: "*",
+      audio: "audio/*",
+      text: "text/*",
+      image: "image/*",
+    };
+    const acceptType = typeMap[args.TYPES] || "*";
+
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.accept = acceptType;
+
+    this.files = [];
+    this.fileContents = [];
+
+    return new Promise((resolve) => {
+      input.onchange = async (event) => {
+        const selectedFiles = Array.from(event.target.files).slice(0, maxFiles);
+        this.files = selectedFiles.map((file) => ({
+          name: file.name,
+          size: file.size,
+          modified: file.lastModified,
+          type: file.type,
+        }));
+        this.fileContents = await Promise.all(
+          selectedFiles.map((file) => this.readFileAsDataURI(file))
+        );
+        resolve();
+        util.target.runtime.requestRedraw();
+      };
+
+      input.oncancel = () => {
+        this.files = [];
+        this.fileContents = [];
+        resolve();
+        util.target.runtime.requestRedraw();
+      };
+
+      input.click();
+    });
+  }
+
+  async readFileAsDataURI(file) {
+    return new Promise((resolve) => {
+      if (!file) {
+        return resolve("");
+      }
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    });
+  }
+
+  clearFiles() {
+    this.files = [];
+    this.fileContents = [];
+  }
+
+  getFileInfo() {
+    return this.files.length > 0 ? JSON.stringify(this.files) : "[]";
+  }
+
+  getFileData() {
+    return this.fileContents.length > 0
+      ? JSON.stringify(this.fileContents)
+      : "[]";
+  }
+}
+Scratch.extensions.register(new MultiFileSelector());
