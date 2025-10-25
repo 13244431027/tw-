@@ -1,0 +1,195 @@
+// 名称: KeyboardPlus
+// 图像: ./assets/extensions-images/keyboardplus.png
+// ID: keyboardplus
+// 描述: 像在文本框中输入一样获取用户的键盘输入，并通过ID区分不同文本框的输入以执行多个检查。
+// 原始扩展作者: silly software https://sillysoftware.lol/
+// 修改者: XmerOriginals
+// 许可证: MPL-2.0
+
+class KeyboardPlus {
+  constructor() {
+    this.inputs = {};
+    window.addEventListener("keydown", this.handleKeyDown.bind(this));
+  }
+
+  getInfo() {
+    return {
+      id: "keyboardplus",
+      name: "键盘增强",
+      color1: "#585858",
+      blocks: [
+        {
+          opcode: "startCapturingInput",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "开始捕获输入 [ID]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "endCapturingInput",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "结束捕获输入 [ID]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "captureInputUntilEnter",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "捕获输入直到按下回车 [ID]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "getTextInput",
+          blockType: Scratch.BlockType.REPORTER,
+          text: "文本输入 [ID]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "clearTextInput",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "清空文本输入 [ID]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "setTextInput",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "设置文本输入 [ID] 为 [TEXT]",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+            TEXT: {
+              type: Scratch.ArgumentType.STRING,
+              defaultValue: "新文本",
+            },
+          },
+        },
+        {
+          opcode: "isCapturingInput",
+          blockType: Scratch.BlockType.BOOLEAN,
+          text: "正在捕获输入 [ID]？",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+          disableMonitor: true,
+        },
+        {
+          opcode: "forceEndOtherCaptures",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "强制结束除 [ID] 外的其他捕获",
+          arguments: {
+            ID: { type: Scratch.ArgumentType.STRING, defaultValue: "默认" },
+          },
+        },
+        {
+          opcode: "endAllCapturing",
+          blockType: Scratch.BlockType.COMMAND,
+          text: "结束所有捕获输入",
+        },
+      ],
+    };
+  }
+
+  startCapturingInput(args) {
+    this.forceEndOtherCaptures(args);
+
+    this.inputs[args.ID] = {
+      isCapturing: true,
+      textInput: "",
+      captureCallback: null,
+    };
+  }
+
+  endCapturingInput(args) {
+    if (this.inputs[args.ID]) {
+      this.inputs[args.ID].isCapturing = false;
+    }
+  }
+
+  forceEndOtherCaptures(args) {
+    Object.keys(this.inputs).forEach((id) => {
+      if (id !== args.ID && this.inputs[id].isCapturing) {
+        this.inputs[id].isCapturing = false;
+      }
+    });
+  }
+
+  captureInputUntilEnter(args) {
+    if (!this.inputs[args.ID]) {
+      this.inputs[args.ID] = {
+        isCapturing: true,
+        textInput: "",
+        captureCallback: null,
+      };
+    }
+    this.inputs[args.ID].isCapturing = true;
+    this.inputs[args.ID].captureCallback = (key) => {
+      if (key === "Enter") {
+        this.inputs[args.ID].isCapturing = false;
+      }
+    };
+  }
+
+  getTextInput(args) {
+    return this.inputs[args.ID] ? this.inputs[args.ID].textInput : "";
+  }
+
+  clearTextInput(args) {
+    if (this.inputs[args.ID]) {
+      this.inputs[args.ID].textInput = "";
+    }
+  }
+
+  setTextInput(args) {
+    if (!this.inputs[args.ID]) {
+      this.inputs[args.ID] = {
+        isCapturing: false,
+        textInput: args.TEXT,
+        captureCallback: null,
+      };
+    } else {
+      this.inputs[args.ID].textInput = args.TEXT;
+    }
+  }
+
+  isCapturingInput(args) {
+    return this.inputs[args.ID] ? this.inputs[args.ID].isCapturing : false;
+  }
+
+  handleKeyDown(event) {
+    Object.keys(this.inputs).forEach((id) => {
+      const input = this.inputs[id];
+      if (input.isCapturing) {
+        const key = event.key;
+        if (key === "Backspace") {
+          if (event.ctrlKey) {
+            input.textInput = input.textInput.replace(/\s*\S+$/, "");
+          } else {
+            input.textInput = input.textInput.slice(0, -1);
+          }
+        } else if (key === "Enter") {
+          if (input.captureCallback) {
+            input.captureCallback("Enter");
+            input.captureCallback = null;
+          }
+        } else if (key.length === 1) {
+          input.textInput += key;
+        }
+      }
+    });
+  }
+
+  endAllCapturing() {
+    Object.keys(this.inputs).forEach((id) => {
+      this.inputs[id].isCapturing = false;
+    });
+  }
+}
+
+Scratch.extensions.register(new KeyboardPlus());
